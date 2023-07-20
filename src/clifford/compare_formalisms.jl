@@ -5,13 +5,42 @@ include("clifford_setup.jl")
 using Statistics
 using RecursiveArrayTools
 using CairoMakie
+using QuantumClifford
+
 CairoMakie.activate!()
 
 ##
 
+
+function pur_func_1(rega, regb, pair1qa, pair1qb, pair2qa, pair2qb, round) 
+    gate = (CNOT, CPHASE)[round%2+1]
+
+    
+    apply!((rega[pair2qa],rega[pair1qa]),gate)
+    apply!((regb[pair2qb],regb[pair1qb]),gate)
+
+    measa = project_traceout!(rega[pair2qa], σˣ)
+    measb = project_traceout!(regb[pair2qb], σˣ)
+    return measa, measb
+end
+
+
+function pur_func_x_option_a(rega, regb, pair1qa, pair1qb, pair2qa, pair2qb, round) 
+    gate = (CNOT, CPHASE)[round%2+1]
+
+    
+    apply!((rega[pair2qa],rega[pair1qa]),gate)
+    apply!((regb[pair2qb],regb[pair1qb]),gate)
+
+    measa = project_traceout!(rega[pair2qa], σˣ)
+    measb = project_traceout!(regb[pair2qb], σˣ)
+    return measa, measb
+end
+
+
 function monte_carlo_trajectory(;
     sampled_times = 0.:0.2:25. ,# Times at which we will sample the entanglement fidelity
-    sizes = [2,3,4,3,2]        ,# Number of qubits in each register
+    sizes = [3,3,4,3,3]        ,# Number of qubits in each register
     T2 = 100.0                 ,# T2 dephasing time of all qubits
     F = 0.97                   ,# Fidelity of the raw Bell pairs
     entangler_wait_time = 0.1  ,# How long to wait if all qubits are busy before retring entangling
@@ -36,7 +65,7 @@ function monte_carlo_trajectory(;
     for nodea in vertices(network)
         for nodeb in vertices(network)
             if nodeb>nodea
-                @process purifier(sim, network, nodea, nodeb, purifier_wait_time, purifier_busy_time)
+                @process purifier(sim, network, nodea, nodeb, purifier_wait_time, purifier_busy_time, pur_func_x_option_a)
             end
         end
     end

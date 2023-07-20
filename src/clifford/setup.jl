@@ -12,6 +12,11 @@ using Revise
 # The workhorse for the simulation
 using QuantumSavory
 
+using QuantumClifford
+
+# using QuantumClifford # the main simulator
+using TaylorSeries    # for symbolic expansion
+using DataStructures
 ##
 # Create a handful of qubit registers in a chain
 ##
@@ -29,12 +34,12 @@ function simulation_setup(
     sim = Simulation()
 
     # All of the quantum register we will be simulating
-    registers = Register[]
+    registers = QuantumSavory.Register[]
     for s in sizes
         traits = [Qubit() for _ in 1:s]
         repr = [representation() for _ in 1:s]
         bg = [T2Dephasing(T2) for _ in 1:s]
-        push!(registers, Register(traits,repr,bg))
+        push!(registers, QuantumSavory.Register(traits,repr,bg))
     end
 
     # A graph structure defining the connectivity among registers
@@ -63,9 +68,9 @@ const perfect_pair = (Z1⊗Z1 + Z2⊗Z2) / sqrt(2)
 const perfect_pair_dm = SProjector(perfect_pair)
 const mixed_dm = MixedState(perfect_pair_dm)
 noisy_pair_func(F) = F*perfect_pair_dm + (1-F)*mixed_dm # TODO make a depolarization helper
-const XX = X⊗X
-const ZZ = Z⊗Z
-const YY = Y⊗Y
+const XX = QuantumSavory.X⊗QuantumSavory.X
+const ZZ = QuantumSavory.Z⊗QuantumSavory.Z
+const YY = QuantumSavory.Y⊗QuantumSavory.Y
 
 @resumable function entangler(
     sim::Environment,   # The scheduler for all simulation events
@@ -146,10 +151,10 @@ function swapcircuit(localslot1, localslot2, remslot1, remslot2; time=nothing)
     xmeas = project_traceout!(localslot1, σˣ)
     zmeas = project_traceout!(localslot2, σᶻ)
     if xmeas==2
-        apply!(remslot1, Z)
+        apply!(remslot1, QuantumSavory.Z)
     end
     if zmeas==2
-        apply!(remslot2, X)
+        apply!(remslot2, QuantumSavory.X)
     end
 end
 
@@ -171,13 +176,14 @@ end
 # The Purifier
 ##
 
-@resumable function purifier_old(
+@resumable function purifier(
     sim::Environment,  # The scheduler for all simulation events
     network,           # The graph of quantum nodes
     nodea,             # One of the nodes on which the pairs to be purified rest
     nodeb,             # The other such node
     purifier_wait_time,# The wait time in case there are no pairs available for purification
-    purifier_busy_time # The duration of the purification circuit   
+    purifier_busy_time, # The duration of the purification circuit   
+    purification_circuit
     )
     round = 0
     while true
@@ -195,14 +201,12 @@ end
         @yield timeout(sim, purifier_busy_time)
         rega = network[nodea]
         regb = network[nodeb]
-        gate = (CNOT, CPHASE)[round%2+1]
-        apply!((rega[pair2qa],rega[pair1qa]),gate)
-        apply!((regb[pair2qb],regb[pair1qb]),gate)
+        
+        
+        measa, measb = purification_circuit(rega, regb, pair1qa, pair1qb, pair2qa, pair2qb, round)
 
-        measa = project_traceout!(rega[pair2qa], σˣ)
-        measb = project_traceout!(regb[pair2qb], σˣ)
-
-        if measa!=measb
+        
+        if measb!=measa
             traceout!(rega[pair1qa])
             traceout!(regb[pair1qb])
             network[nodea,:enttrackers][pair1qa] = nothing
@@ -221,7 +225,7 @@ end
 
 
 # double selection
-@resumable function purifier(
+@resumable function purifier_triple(
     sim::Environment,  # The scheduler for all simulation events
     network,           # The graph of quantum nodes
     nodea,             # One of the nodes on which the pairs to be purified rest
@@ -304,3 +308,11 @@ function findqubitstopurify_doubleselection(network,nodea,nodeb)
         return nothing
     end
 end
+
+
+
+
+
+
+
+
