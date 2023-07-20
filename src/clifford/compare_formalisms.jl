@@ -25,7 +25,7 @@ function pur_func_1(rega, regb, pair1qa, pair1qb, pair2qa, pair2qb, round)
 end
 
 
-function pur_func_x_option_a(rega, regb, pair1qa, pair1qb, pair2qa, pair2qb, round) 
+function pur_func_x_option_a_2(rega, regb, pair1qa, pair1qb, pair2qa, pair2qb, round) 
     gate = (CNOT, CPHASE)[round%2+1]
 
     
